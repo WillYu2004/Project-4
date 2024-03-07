@@ -1,6 +1,7 @@
 #include "DSVWriter.h"
 #include "DataSink.h"
 #include "DataSource.h"
+#include "StringUtils.h"
 
 struct CDSVWriter::SImplementation{
     std::shared_ptr<CDataSink> sink;
@@ -9,23 +10,30 @@ struct CDSVWriter::SImplementation{
     SImplementation(std::shared_ptr<CDataSink> sink, char delimiter, bool quoteall)
         :sink(std::move(sink)),delimiter(delimiter),quoteall(quoteall){}
     bool WriteRow(const std::vector<std::string> &row) {
-    if (row.empty()) {
-        // Handle the case where the input vector is empty
-        return false;
-    }
     std::string line;
     for (size_t i = 0; i < row.size(); ++i) {
-        line += row[i];
+        std::string element = row[i];
+        bool needsQuoting = quoteall || element.find(delimiter) != std::string::npos || 
+                            element.find('\"') != std::string::npos || 
+                            element.find('\n') != std::string::npos;
+
+        if (needsQuoting) {
+            line += '\"' + StringUtils::Replace(element, "\"", "\"\"") + '\"'; // Escape quotes and wrap in quotes
+        } else if (!quoteall) {
+            line += element;
+        }
+
         if (i < row.size() - 1) {
-            // Add the delimiter after each element except the last one
-            line += delimiter;
+            line += delimiter; // Add delimiter between elements
         }
     }
-    for(size_t i=0; i<line.size(); i++){
-        sink->Put(line[i]);
+
+    // Write the constructed line to the sink
+    for (char c : line) {
+        sink->Put(c);
     }
 
-    return true;
+    return true; // Indicate successful writing
 }
 };
 CDSVWriter::CDSVWriter(std::shared_ptr< CDataSink > sink, char delimiter, bool quoteall){
