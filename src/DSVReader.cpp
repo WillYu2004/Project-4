@@ -26,30 +26,50 @@ struct CDSVReader::SImplementation{
                 source->Get(ch); // Consume the '\n' character.
             }
             break; // Exit the loop as the end of a row is reached.
-        } else {
+        }
+        else if(ch == '\"'){
+            line += nullptr;
+        }
+        else {
             line += ch; // Append the character to the current line.
         }
     }
 
     // If no data was read (and possibly the end of the source was reached), return false.
     if (!dataRead) {
+        AtEnd = true; // Mark the end of the data source
         return false;
     }
 
-    // Split the line into columns based on the delimiter and populate the row vector.
+    // Parsing the line considering quoted fields
     size_t start = 0;
-    size_t end = line.find(delimiter);
-    while (end != std::string::npos) {
-        row.push_back(line.substr(start, end - start));
-        start = end + 1;
-        end = line.find(delimiter, start);
+    bool inQuotes = false;
+    for (size_t i = 0; i <= line.length(); ++i) {
+        if (i == line.length() || (line[i] == delimiter && !inQuotes)) {
+            row.push_back(line.substr(start, i - start));
+            start = i + 1; // Move past the delimiter
+        } else if (line[i] == '\"') {
+            // Toggle the inQuotes flag if not escaped quote
+            if (!(i > 0 && line[i-1] == '\"')) { // Check for escaped quote
+                inQuotes = !inQuotes;
+            } else if (i > 0) {
+                // Remove one of the double quotes from the escaped quote pair
+                line.erase(i--, 1);
+            }
+        }
     }
-    row.push_back(line.substr(start)); // Add the last column if there's no delimiter at the end of the line.
 
+    // If the line is not empty but no row was read, add the line as a single field row
+    if (line.empty() && row.empty()) {
+        row.push_back(line);
+    }
+
+    if(source->End()){
+        AtEnd = true;
+    }
+    
     return true; // Return true as a row has been successfully read.
 }
-
-
 
 };
     bool CDSVReader::End() const {
