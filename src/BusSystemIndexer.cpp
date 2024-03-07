@@ -84,7 +84,7 @@ public:
         }
         return nullptr;
     }
-    bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>>& routes) const noexcept {
+/*  bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>>& routes) const noexcept {
         bool found = false;
         auto srcStop = StopByID(src);
         auto destStop = StopByID(dest);
@@ -111,5 +111,5 @@ public:
     bool RouteBetweenNodeIDs(TNodeID src, TNodeID dest) const noexcept {
         std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>> routes;
         return RoutesByNodeIDs(src, dest, routes);
-    }
+    }*/
 };

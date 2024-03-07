@@ -142,16 +142,30 @@ std::vector<std::string> Split(const std::string &str, const std::string &splt) 
 }
 
 
-std::string Join(const std::string &str, const std::vector< std::string > &vect) noexcept{
+std::string Join(const std::string &separator, const std::vector<std::string> &vect) noexcept {
     std::string result;
-    result+=str;
-    for(const auto &elem: vect){
-        result+=elem;
+    for (size_t i = 0; i < vect.size(); ++i) {
+        if (i > 0) { // Only add the separator if it's not the first element
+            result += separator;
+        }
+        result += vect[i];
     }
     return result;
 }
 
-std::string ExpandTabs(const std::string &str, int tabsize) noexcept{
+
+std::string ExpandTabs(const std::string &str, int tabsize) noexcept {
+    // If tabsize is 0, simply remove all tabs.
+    if (tabsize == 0) {
+        std::string noTabs;
+        for (char ch : str) {
+            if (ch != '\t') {
+                noTabs.push_back(ch);
+            }
+        }
+        return noTabs;
+    }
+
     std::string expanded;
     int column = 0;
     for (char ch : str) {
@@ -168,6 +182,42 @@ std::string ExpandTabs(const std::string &str, int tabsize) noexcept{
 }
 
 int EditDistance(const std::string &left, const std::string &right, bool ignorecase) noexcept {
-    return 0; //No idea how to do this one
+    std::string leftProcessed = left;
+    std::string rightProcessed = right;
+
+    // Convert strings to lower case if ignorecase is true
+    if (ignorecase) {
+        leftProcessed = Lower(left);
+        rightProcessed = Lower(right);
+    }
+
+    const std::size_t m = leftProcessed.size();
+    const std::size_t n = rightProcessed.size();
+
+    // Create a matrix to store results of subproblems
+    std::vector<std::vector<int>> dp(m + 1, std::vector<int>(n + 1));
+
+    // Initialize the matrix with the base case values
+    for (std::size_t i = 0; i <= m; i++) {
+        dp[i][0] = i; // Deletion
+    }
+    for (std::size_t j = 0; j <= n; j++) {
+        dp[0][j] = j; // Insertion
+    }
+
+    // Compute the edit distance
+    for (std::size_t i = 1; i <= m; i++) {
+        for (std::size_t j = 1; j <= n; j++) {
+            // If characters are the same (no operation needed), or determine the operation cost
+            int cost = (leftProcessed[i - 1] == rightProcessed[j - 1]) ? 0 : 1;
+
+            dp[i][j] = std::min({ dp[i - 1][j] + 1,    // Deletion
+                                  dp[i][j - 1] + 1,    // Insertion
+                                  dp[i - 1][j - 1] + cost }); // Substitution
+        }
+    }
+
+    // The edit distance is in the cell dp[m][n]
+    return dp[m][n];
 }
 };
