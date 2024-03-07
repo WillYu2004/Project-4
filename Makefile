@@ -6,21 +6,66 @@ SRC_DIR=./src
 OBJ_DIR=./obj
 BIN_DIR=./bin
 TEST_SRC_DIRC=./testsrc
+TEST_TMP_DIR=./testtmp
 
 CXXFLAGS=-std=c++17 -I$(INC_DIR)
 LDFLAGS=-lgtest -lgtest_main -lpthread -lexpat
 
 all: directories runtests
 
-runtests: $(BIN_DIR)/teststrutils $(BIN_DIR)/teststrdatasource $(BIN_DIR)/testfiledatass $(BIN_DIR)/teststrdatasink $(BIN_DIR)/testdsv $(BIN_DIR)/testxml $(BIN_DIR)/testcsvbs $(BIN_DIR)/testosm
-	$(BIN_DIR)/teststrutils
-	$(BIN_DIR)/teststrdatasource
-	$(BIN_DIR)/testfiledatass
-	$(BIN_DIR)/teststrdatasink
-	$(BIN_DIR)/testdsv
-	$(BIN_DIR)/testxml
-	$(BIN_DIR)/testcsvbs
-	$(BIN_DIR)/testosm
+runtests: 	run_teststutils \
+			run_teststrdatasource \
+			run_teststrdatasink \
+			run_testfiledatass \
+			run_testdsv \
+			run_testxml	\
+			run_testkml \
+			run_testosm \
+			run_testdpr \
+			run_testcsvbs \
+			run_testcsvbsi \
+			run_testtpcl \
+			run_testtp
+
+run_teststutils: $(BIN_DIR)/teststrutils
+	$(BIN_DIR)/teststrutils --gtest_output=xml:$(TEST_TMP_DIR)/run_teststutils
+	mv $(TEST_TMP_DIR)/run_teststutils run_teststutils
+run_teststrdatasource: $(BIN_DIR)/teststrdatasource
+	$(BIN_DIR)/teststrdatasource --gtest_output=xml:$(TEST_TMP_DIR)/run_teststrdatasource
+	mv $(TEST_TMP_DIR)/run_teststrdatasource run_teststrdatasource
+run_teststrdatasink: $(BIN_DIR)/teststrdatasink
+	$(BIN_DIR)/teststrdatasink --gtest_output=xml:$(TEST_TMP_DIR)/run_teststrdatasink
+	mv $(TEST_TMP_DIR)/run_teststrdatasink run_teststrdatasink
+run_testfiledatass: $(BIN_DIR)/testfiledatass
+	$(BIN_DIR)/testfiledatass --gtest_output=xml:$(TEST_TMP_DIR)/run_testfiledatass
+	mv $(TEST_TMP_DIR)/run_testfiledatass run_testfiledatass
+run_testdsv: $(BIN_DIR)/testdsv
+	$(BIN_DIR)/testdsv --gtest_output=xml:$(TEST_TMP_DIR)/run_testdsv
+	mv $(TEST_TMP_DIR)/run_testdsv run_testdsv
+run_testxml: $(BIN_DIR)/testxml
+	$(BIN_DIR)/testxml --gtest_output=xml:$(TEST_TMP_DIR)/run_testxml
+	mv $(TEST_TMP_DIR)/run_testxml run_testxml
+run_testkml: $(BIN_DIR)/testkml
+	$(BIN_DIR)/testkml --gtest_output=xml:$(TEST_TMP_DIR)/run_testkml
+	mv $(TEST_TMP_DIR)/run_testkml run_testkml
+run_testosm: $(BIN_DIR)/testosm
+	$(BIN_DIR)/testosm --gtest_output=xml:$(TEST_TMP_DIR)/run_testosm
+	mv $(TEST_TMP_DIR)/run_testosm run_testosm
+run_testdpr: $(BIN_DIR)/testdpr
+	$(BIN_DIR)/testdpr --gtest_output=xml:$(TEST_TMP_DIR)/run_testdpr
+	mv $(TEST_TMP_DIR)/run_testdpr run_testdpr
+run_testcsvbs: $(BIN_DIR)/testcsvbs
+	$(BIN_DIR)/testcsvbs --gtest_output=xml:$(TEST_TMP_DIR)/run_testcsvbs
+	mv $(TEST_TMP_DIR)/run_testcsvbs run_testcsvbs
+run_testcsvbsi: $(BIN_DIR)/testcsvbsi
+	$(BIN_DIR)/testcsvbsi --gtest_output=xml:$(TEST_TMP_DIR)/run_testcsvbsi
+	mv $(TEST_TMP_DIR)/run_testcsvbsi run_testcsvbsi
+run_testtpcl: $(BIN_DIR)/testtpcl
+	$(BIN_DIR)/testtpcl --gtest_output=xml:$(TEST_TMP_DIR)/run_testtpcl
+	mv $(TEST_TMP_DIR)/run_testtpcl run_testtpcl
+run_testtp: $(BIN_DIR)/testtp
+	$(BIN_DIR)/testtp --gtest_output=xml:$(TEST_TMP_DIR)/run_testtp
+	mv $(TEST_TMP_DIR)/run_testtp run_testtp
 
 $(BIN_DIR)/teststrutils: $(OBJ_DIR)/StringUtils.o $(OBJ_DIR)/StringUtilsTest.o
 	$(CXX) -o $(BIN_DIR)/teststrutils $(CXXFLAGS) $(OBJ_DIR)/StringUtils.o $(OBJ_DIR)/StringUtilsTest.o $(LDFLAGS)
@@ -148,13 +193,15 @@ $(OBJ_DIR)/CSVOSMTransportationPlannerTest.o: $(SRC_DIR)/CSVOSMTransportationPla
 $(OBJ_DIR)/DijkstraTransportationPlanner.o: $(SRC_DIR)/DijkstraTransportationPlanner.cpp $(INC_DIR)/DijkstraTransportationPlanner.h
 	$(CXX) -o $(OBJ_DIR)/DijkstraTransportationPlanner.o -c $(CXXFLAGS) $(SRC_DIR)/DijkstraTransportationPlanner.cpp
 
-$(BIN_DIR)/testtpcl: $(BIN_DIR)/CSVOSMTransportationPlannerTest.o $(BIN_DIR)/DijkstraTransportationPlanner.o
-	$(CXX) -o $(BIN_DIR)/testtp $(CXXFLAGS) $(OBJ_DIR)/CSVOSMTransportationPlannerTest.o $(OBJ_DIR)/DijkstraTransportationPlanner.o $(LDFLAGS)
+
 
 clean:
 	rm -rf $(OBJ_DIR)
 	rm -rf $(BIN_DIR)
+	rm -rf $(TEST_TMP_DIR)
+	rm -f run_*
 
 directories:
 	mkdir -p $(OBJ_DIR)
 	mkdir -p $(BIN_DIR)
+	mkdir -p $(TEST_TMP_DIR)
