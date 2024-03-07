@@ -1,5 +1,6 @@
 #include "BusSystemIndexer.h"
 #include "CSVBusSystem.h"
+#include "BusSystem.h"
 #include <unordered_map>
 #include <algorithm>
 #include <memory>
@@ -95,7 +96,7 @@ public:
         TStopID srcStopID = srcStop->ID();
         TStopID destStopID = destStop->ID();
 
-        for (const auto& route : DImplementation->SortedRoutes) {
+        for (const auto&route : DImplementation->SortedRoutes) {
             const auto& stopIDs = route->StopIDs;
             auto srcIt = std::find(stopIDs.begin(), stopIDs.end(), srcStopID);
             auto destIt = std::find(stopIDs.begin(), stopIDs.end(), destStopID);
