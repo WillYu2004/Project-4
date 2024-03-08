@@ -85,32 +85,40 @@ public:
         }
         return nullptr;
     }
-/*  bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>>& routes) const noexcept {
-        bool found = false;
-        auto srcStop = StopByID(src);
-        auto destStop = StopByID(dest);
-        if (!srcStop || !destStop) {
-            return false;
-        }
+    bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>>& routes) const noexcept {
+    bool found = false;
+    auto srcStop = StopByID(src);
+    auto destStop = StopByID(dest);
+    if (!srcStop || !destStop) {
+        return false;
+    }
 
-        TStopID srcStopID = srcStop->ID();
-        TStopID destStopID = destStop->ID();
+    TStopID srcStopID = srcStop->ID();
+    TStopID destStopID = destStop->ID();
 
-        for (const auto&route : DImplementation->SortedRoutes) {
-            const auto& stopIDs = route->StopIDs;
-            auto srcIt = std::find(stopIDs.begin(), stopIDs.end(), srcStopID);
-            auto destIt = std::find(stopIDs.begin(), stopIDs.end(), destStopID);
-            if (srcIt != stopIDs.end() && destIt != stopIDs.end() && srcIt < destIt) {
-                routes.insert(route);
-                found = true;
+    for (const auto& route : DImplementation->SortedRoutes) {
+        bool srcFound = false;
+        bool destFound = false;
+        for (std::size_t i = 0; i < route->StopCount(); ++i) {
+            TStopID currentStopID = route->GetStopID(i);
+            if (currentStopID == srcStopID) {
+                srcFound = true;
+            } else if (currentStopID == destStopID && srcFound) {
+                destFound = true;
+                break;
             }
         }
-
-        return found;
+        if (srcFound && destFound) {
+            routes.insert(route);
+            found = true;
+        }
     }
+
+    return found;
+}
 
     bool RouteBetweenNodeIDs(TNodeID src, TNodeID dest) const noexcept {
         std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>> routes;
         return RoutesByNodeIDs(src, dest, routes);
-    }*/
+    }
 };
