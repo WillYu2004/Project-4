@@ -27,9 +27,7 @@ struct CDSVReader::SImplementation{
             }
             break; // Exit the loop as the end of a row is reached.
         }
-        else if(ch == '\"'){
-            line += nullptr;
-        }
+
         else {
             line += ch; // Append the character to the current line.
         }
@@ -42,22 +40,45 @@ struct CDSVReader::SImplementation{
     }
 
     // Parsing the line considering quoted fields
-    size_t start = 0;
+    size_t start = 0; // Start index of a new field
     bool inQuotes = false;
-    for (size_t i = 0; i <= line.length(); ++i) {
-        if (i == line.length() || (line[i] == delimiter && !inQuotes)) {
-            row.push_back(line.substr(start, i - start));
-            start = i + 1; // Move past the delimiter
-        } else if (line[i] == '\"') {
-            // Toggle the inQuotes flag if not escaped quote
-            if (!(i > 0 && line[i-1] == '\"')) { // Check for escaped quote
-                inQuotes = !inQuotes;
-            } else if (i > 0) {
-                // Remove one of the double quotes from the escaped quote pair
-                line.erase(i--, 1);
-            }
+    for (size_t i = 0; i < line.length(); ++i) {
+        if (line[i] == '\"') {
+            // Toggle the inQuotes flag on encountering a quote
+            inQuotes = !inQuotes;
+            continue; // Skip adding or removing quotes directly to/from the field value
+        }
+        if (!inQuotes && line[i] == delimiter) {
+            // If not in quotes and we hit a delimiter, end of a field
+            row.push_back(line.substr(start, i - start)); // Add the field
+            start = i + 1; // Update start to the character after the delimiter
+        } else if (inQuotes && i > 0 && line[i] == '\"' && line[i-1] == '\"') {
+            // Handle escaped quotes within quoted fields by removing one of the quotes
+            line.erase(i, 1); // Remove the quote
+            i--; // Adjust loop index since we modified the string
         }
     }
+    // Add the last field if it wasn't followed by a delimiter
+    if (start < line.length()) {
+        row.push_back(line.substr(start));
+    }
+
+    // Post-processing to handle quoted fields correctly
+    for (size_t i = 0; i < row.size(); ++i) {
+        if (!row[i].empty() && row[i].front() == '\"' && row[i].back() == '\"') {
+            // Remove the surrounding quotes
+            row[i] = row[i].substr(1, row[i].length() - 2);
+
+            // Replace escaped quotes ("" -> ") within the field
+            size_t pos = 0; // Start of the search
+            while ((pos = row[i].find("\"\"", pos)) != std::string::npos) {
+                row[i].replace(pos, 2, "\"");
+                pos++; // Continue searching from the next position
+           }
+        }
+    }
+
+
 
     // If the line is not empty but no row was read, add the line as a single field row
     if (line.empty() && row.empty()) {
