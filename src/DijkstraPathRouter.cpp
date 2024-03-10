@@ -74,6 +74,42 @@ struct CDijkstraPathRouter::SImplementation{
             return CPathRouter::NoPathExists;
         }
         double PathDistance = Distances[dest];
+        path.clear();
+        path.push_back(dest);
+        do{
+            dest = Previous[dest];
+            path.push_back(dest);
+        }while(dest != src);
+        std::reverse(path.begin(), path.end());
+        return PathDistance;
     }
 
 };
+
+CDijkstraPathRouter::CDijkstraPathRouter(){
+    DImplementation = std::make_unique<SImplementation>();
+}
+
+CDijkstraPathRouter::~CDijkstraPathRouter(){
+
+}
+
+std::size_t CDijkstraPathRouter::VertexCount() const noexcept{
+    return DImplementation->VertexCount();
+}
+
+std::any CDijkstraPathRouter::GetVertexTag(TVertexID id) const noexcept{
+    return DImplementation->GetVertexTag(id);
+}
+
+bool CDijkstraPathRouter::AddEdge(TVertexID src, TVertexID dest, double weight, bool bidir = false) noexcept{
+    return DImplementation->AddEdge(src,dest,weight,bidir);
+}
+
+bool CDijkstraPathRouter::Precompute(std::chrono::steady_clock::time_point deadline) noexcept{
+    return DImplementation->Precompute(deadline);
+}
+
+double CDijkstraPathRouter::FindShortestPath(TVertexID src, TVertexID dest, std::vector<TVertexID> &path) noexcept{
+    return DImplementation->FindShortestPath(src,dest,path);
+}
