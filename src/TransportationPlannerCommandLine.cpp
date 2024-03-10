@@ -22,7 +22,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::shared_ptr<CTransportationPlanner> planner)
         : DCmdSrc(cmdsrc), DOutSink(outsink), DErrSink(errsink), DResults(results), DPlanner(planner) {}
 
-    bool ProcessCommands() {
+    bool ProcessCommands(){
         std::vector<char> LineBuffer;
         while (DCmdSrc->Read(LineBuffer, 1024)) {
             LineBuffer.push_back('\n');  // Add newline character
@@ -185,18 +185,11 @@ struct CTransportationPlannerCommandLine::SImplementation {
 };
 
 // Constructor
-CTransportationPlannerCommandLine::CTransportationPlannerCommandLine(
-    std::shared_ptr<CDataSource> cmdsrc,
-    std::shared_ptr<CDataSink> outsink,
-    std::shared_ptr<CDataSink> errsink,
-    std::shared_ptr<CDataFactory> results,
-    std::shared_ptr<CTransportationPlanner> planner)
+CTransportationPlannerCommandLine::CTransportationPlannerCommandLine(std::shared_ptr<CDataSource> cmdsrc, std::shared_ptr<CDataSink> outsink, std::shared_ptr<CDataSink> errsink, std::shared_ptr<CDataFactory> results, std::shared_ptr<CTransportationPlanner> planner)
     : DImplementation(std::make_unique<SImplementation>(cmdsrc, outsink, errsink, results, planner)) {}
-
 // Destructor
 CTransportationPlannerCommandLine::~CTransportationPlannerCommandLine() {}
 
-// Processes the commands input to the program
 bool CTransportationPlannerCommandLine::ProcessCommands() {
     return DImplementation->ProcessCommands();
 }
