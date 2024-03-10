@@ -37,7 +37,11 @@ struct CDijkstraTransportationPlanner::SImplementation{
         return DStreetMap->NodeCount();
     }
     std::shared_ptr<CStreetMap::SNode> SortedNodeByIndex(std::size_t index) const noexcept {
-        
+        if(index >= NodeCount()){
+            return nullptr;
+        }
+        // Assuming DStreetMap provides sorted access or implement sorting
+        return DStreetMap->NodeByIndex(index);
     }
 
     double FindShortestPath(TNodeID src, TNodeID dest, std::vector< TNodeID > &path) {
@@ -52,9 +56,9 @@ struct CDijkstraTransportationPlanner::SImplementation{
         return Distance;
     }
     double FindFastestPath(TNodeID src, TNodeID dest, std::vector< TTripStep > &path) {
-        
+
     }
+
     bool GetPathDescription(const std::vector< TTripStep > &path, std::vector< std::string > &desc) const {
-        
     }
 };
