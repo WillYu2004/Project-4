@@ -3,7 +3,8 @@
 #include "GeographicUtils.h"
 #include "CSVBusSystem.h"
 #include "unordered_map"
-
+#include <sstream>
+#include <iomanip>
 struct CDijkstraTransportationPlanner::SImplementation{
     std::shared_ptr< CStreetMap > DStreetMap;
     std::shared_ptr< CBusSystem > DBusSystem;
@@ -124,6 +125,71 @@ struct CDijkstraTransportationPlanner::SImplementation{
     return CPathRouter::NoPathExists;
     }
 
-    bool GetPathDescription(const std::vector< TTripStep > &path, std::vector< std::string > &desc) const {
+bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
+    desc.clear();
+
+    if (path.empty()) {
+        return false;
     }
+
+    // Start location
+    auto StartNode = DStreetMap->NodeByID(path.front().second);
+    auto StartLocation = StartNode->Location();
+    std::stringstream StartSS;
+    StartSS << "Start at " << SGeographicUtils::ConvertLLToDMS(StartLocation);
+    desc.push_back(StartSS.str());
+
+    ETransportationMode PrevMode = path.front().first;
+    TNodeID PrevNodeID = path.front().second;
+
+    for (size_t i = 1; i < path.size(); ++i) {
+        auto CurrentStep = path[i];
+        auto CurrentNode = DStreetMap->NodeByID(CurrentStep.second);
+        auto CurrentLocation = CurrentNode->Location();
+
+        if (CurrentStep.first != PrevMode) {
+            // Mode change
+            if (CurrentStep.first == ETransportationMode::Bus) {
+                auto PrevStop = DBusSystem->StopByID(PrevNodeID);
+                auto CurrentStop = DBusSystem->StopByID(CurrentStep.second);
+                std::stringstream BusSS;
+                BusSS << "Take Bus from stop " << PrevStop->ID() << " to stop " << CurrentStop->ID();
+                desc.push_back(BusSS.str());
+            } else {
+                auto PrevNode = DStreetMap->NodeByID(PrevNodeID);
+                double Distance = SGeographicUtils::HaversineDistanceInMiles(PrevNode->Location(), CurrentLocation);
+                double Bearing = SGeographicUtils::CalculateBearing(PrevNode->Location(), CurrentLocation);
+                std::string Direction = SGeographicUtils::BearingToDirection(Bearing);
+                std::stringstream WalkBikeSS;
+                WalkBikeSS << (CurrentStep.first == ETransportationMode::Walk ? "Walk" : "Bike") << " "
+                           << Direction << " for " << std::fixed << std::setprecision(1) << Distance << " mi";
+                desc.push_back(WalkBikeSS.str());
+            }
+        } else {
+            // Same mode
+            double Distance = SGeographicUtils::HaversineDistanceInMiles(DStreetMap->NodeByID(PrevNodeID)->Location(),
+                                                                         CurrentLocation);
+            double Bearing = SGeographicUtils::CalculateBearing(DStreetMap->NodeByID(PrevNodeID)->Location(),
+                                                                CurrentLocation);
+            std::string Direction = SGeographicUtils::BearingToDirection(Bearing);
+            std::stringstream SameModeSS;
+            SameModeSS << (CurrentStep.first == ETransportationMode::Walk ? "Walk" : "Bike") << " "
+                       << Direction << " for " << std::fixed << std::setprecision(1) << Distance << " mi";
+            desc.push_back(SameModeSS.str());
+        }
+
+        PrevMode = CurrentStep.first;
+        PrevNodeID = CurrentStep.second;
+    }
+
+    // End location
+    auto EndNode = DStreetMap->NodeByID(path.back().second);
+    auto EndLocation = EndNode->Location();
+    std::stringstream EndSS;
+    EndSS << "End at " << SGeographicUtils::ConvertLLToDMS(EndLocation);
+    desc.push_back(EndSS.str());
+
+    return true;
+}
+
 };
