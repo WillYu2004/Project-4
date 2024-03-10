@@ -125,12 +125,12 @@ struct CDijkstraTransportationPlanner::SImplementation{
     return CPathRouter::NoPathExists;
     }
 
-bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
-    desc.clear();
+    bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
+        desc.clear();
 
-    if (path.empty()) {
-        return false;
-    }
+        if (path.empty()) {
+            return false;
+        }
 
     // Start location
     auto StartNode = DStreetMap->NodeByID(path.front().second);
@@ -190,6 +190,6 @@ bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::str
     desc.push_back(EndSS.str());
 
     return true;
-}
+    }
 
 };

@@ -46,6 +46,7 @@ struct CBusSystemIndexer::SImplementation{
                     DSrcDestToRoutes[SearchKey] = {CurrentRoute};
                 }
             }
+            DSortedRoutes.push_back(CurrentRoute);
         }
     }
 
