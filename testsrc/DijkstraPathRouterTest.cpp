@@ -2,7 +2,7 @@
 #include "DijkstraPathRouter.h"
 
 TEST(DijkstraPathRouter, RouteTest){
-    DijkstraPathRouter PathRouter;
+    CDijkstraPathRouter PathRouter;
     std::vector<CPathRouter::TVertexID> Vertices;
     for(std::size_t Index = 0; Index < 6; Index++){
         Vertices.push_back(PathRouter.AddVertex(Index));

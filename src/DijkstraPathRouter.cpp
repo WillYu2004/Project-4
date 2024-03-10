@@ -98,11 +98,15 @@ std::size_t CDijkstraPathRouter::VertexCount() const noexcept{
     return DImplementation->VertexCount();
 }
 
+std::size_t CDijkstraPathRouter::AddVertex(std::any tag) noexcept {
+    return DImplementation->AddVertex(tag);
+}
+
 std::any CDijkstraPathRouter::GetVertexTag(TVertexID id) const noexcept{
     return DImplementation->GetVertexTag(id);
 }
 
-bool CDijkstraPathRouter::AddEdge(TVertexID src, TVertexID dest, double weight, bool bidir = false) noexcept{
+bool CDijkstraPathRouter::AddEdge(TVertexID src, TVertexID dest, double weight, bool bidir) noexcept{
     return DImplementation->AddEdge(src,dest,weight,bidir);
 }
 
