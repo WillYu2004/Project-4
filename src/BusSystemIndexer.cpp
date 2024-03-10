@@ -1,125 +1,134 @@
 #include "BusSystemIndexer.h"
-#include "CSVBusSystem.h"
-#include "BusSystem.h"
-#include <unordered_map>
-#include <algorithm>
-#include <memory>
 #include <vector>
+#include <algorithm>
+#include <unordered_map>
 
-class CBusSystemIndexer {
-private:
-    struct SImplementation {
-        std::shared_ptr<CCSVBusSystem> BusSystem;
-        std::vector<std::shared_ptr<CCSVBusSystem::SStop>> SortedStops;
-        std::vector<std::shared_ptr<CCSVBusSystem::SRoute>> SortedRoutes;
-        std::unordered_map<CCSVBusSystem::TStopID, std::shared_ptr<CCSVBusSystem::SStop>> StopIDtoStopMap;
+struct CBusSystemIndexer::SImplementation{
+    struct pair_hash{
+        template <class T1, class T2>
+        std::size_t operator () (const std::pair<T1,T2> &p) const{
+            auto h1 = std::hash<T1>{}(p.first);
+            auto h2 = std::hash<T2>{}(p.second);
 
-        SImplementation(std::shared_ptr<CCSVBusSystem> busSystem) : BusSystem(std::move(busSystem)) {
-            IndexStops();
-            IndexRoutes();
-        }
-
-        void IndexStops() {
-            for (std::size_t i = 0, n = BusSystem->StopCount(); i < n; ++i) {
-                auto stop = BusSystem->StopByIndex(i);
-                SortedStops.push_back(stop);
-                StopIDtoStopMap[stop->ID()] = stop;
-            }
-
-            std::sort(SortedStops.begin(), SortedStops.end(),
-                      [](const std::shared_ptr<CCSVBusSystem::SStop>& a, const std::shared_ptr<CCSVBusSystem::SStop>& b) {
-                          return a->ID() < b->ID();
-                      });
-        }
-
-        void IndexRoutes() {
-            for (std::size_t i = 0, n = BusSystem->RouteCount(); i < n; ++i) {
-                auto route = BusSystem->RouteByIndex(i);
-                SortedRoutes.push_back(route);
-            }
-
-            std::sort(SortedRoutes.begin(), SortedRoutes.end(),
-                      [](const std::shared_ptr<CCSVBusSystem::SRoute>& a, const std::shared_ptr<CCSVBusSystem::SRoute>& b) {
-                          return a->Name() < b->Name();
-                      });
+            return h1 ^ h2;
         }
     };
 
-    std::unique_ptr<SImplementation> DImplementation;
+    std::shared_ptr<CBusSystem> DBusSystem;
+    std::vector< std::shared_ptr<SStop> > DSortedStops;
+    std::vector<std::shared_ptr<SRoute>> DSortedRoutes;
+    std::unordered_map< TNodeID, std::shared_ptr<SStop> > DNodeIDToStop;
+    std::unordered_map<std::pair<TNodeID, TNodeID>, std::unordered_set<std::shared_ptr<SRoute>>, pair_hash> DSrcDestToRoutes;
 
-public:
-    using TStopID = CCSVBusSystem::TStopID;
-    using TNodeID = CStreetMap::TNodeID;
-
-    CBusSystemIndexer(std::shared_ptr<CCSVBusSystem> busSystem)
-    : DImplementation(std::make_unique<SImplementation>(std::move(busSystem))) {}
-
-    ~CBusSystemIndexer() = default;
-
-    std::size_t StopCount() const noexcept {
-        return DImplementation->SortedStops.size();
+    static bool StopIDCompare(std::shared_ptr<SStop> left, std::shared_ptr<SStop> right) {
+        return left->ID() < right->ID();
     }
 
-    std::size_t RouteCount() const noexcept {
-        return DImplementation->SortedRoutes.size();
-    }
-
-    std::shared_ptr<CCSVBusSystem::SStop> SortedStopByIndex(std::size_t index) const noexcept {
-        if (index >= StopCount()) {
-            return nullptr;
+    SImplementation(std::shared_ptr<CBusSystem> bussystem){
+        DBusSystem = bussystem;
+        for(size_t Index = 0; Index < DBusSystem->StopCount(); Index++){
+            auto CurrentStop = DBusSystem->StopByIndex(Index);
+            DSortedStops.push_back(CurrentStop);
+            DNodeIDToStop[CurrentStop->NodeID()] = CurrentStop;
         }
-        return DImplementation->SortedStops[index];
-    }
-
-    std::shared_ptr<CCSVBusSystem::SRoute> SortedRouteByIndex(std::size_t index) const noexcept {
-        if (index >= RouteCount()) {
-            return nullptr;
+        std::sort(DSortedStops.begin(),DSortedStops.end(),StopIDCompare);
+        for(size_t Index = 0; Index < DBusSystem->RouteCount(); Index++){
+            auto CurrentRoute = DBusSystem->RouteByIndex(Index);
+            for(size_t StopIndex = 1; StopIndex < CurrentRoute->StopCount(); StopIndex++){
+                auto SourceNodeID = DBusSystem->StopByID(CurrentRoute->GetStopID(StopIndex-1))->NodeID();
+                auto DestinationNodeID = DBusSystem->StopByID(CurrentRoute->GetStopID(StopIndex))->NodeID();
+                auto SearchKey = std::make_pair(SourceNodeID,DestinationNodeID);
+                auto Search = DSrcDestToRoutes.find(SearchKey);
+                if(Search != DSrcDestToRoutes.end()){
+                    Search->second.insert(CurrentRoute);
+                }
+                else{
+                    DSrcDestToRoutes[SearchKey] = {CurrentRoute};
+                }
+            }
         }
-        return DImplementation->SortedRoutes[index];
     }
 
-    std::shared_ptr<CCSVBusSystem::SStop> StopByID(TStopID id) const noexcept {
-        auto it = DImplementation->StopIDtoStopMap.find(id);
-        if (it != DImplementation->StopIDtoStopMap.end()) {
-            return it->second;
+    std::size_t StopCount() const noexcept{
+        return DBusSystem->StopCount();
+    }
+
+    std::size_t RouteCount() const noexcept{
+        return DBusSystem->RouteCount();
+    }
+
+    std::shared_ptr<SStop> SortedStopByIndex(std::size_t index) const noexcept{
+        if (index < DSortedStops.size()) {
+            return DSortedStops[index];
         }
         return nullptr;
     }
-    bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>>& routes) const noexcept {
-    bool found = false;
-    auto srcStop = StopByID(src);
-    auto destStop = StopByID(dest);
-    if (!srcStop || !destStop) {
+
+    std::shared_ptr<SRoute> SortedRouteByIndex(std::size_t index) const noexcept{
+        if (index < DSortedRoutes.size()) {
+            return DSortedRoutes[index];
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<SStop> StopByNodeID(TNodeID id) const noexcept{
+        auto Search = DNodeIDToStop.find(id);
+        if(Search != DNodeIDToStop.end()){
+            return Search->second;
+        }
+        return nullptr;
+    }
+
+    bool RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<SRoute> > &routes) const noexcept{
+        auto SearchKey = std::make_pair(src,dest);
+        auto Search = DSrcDestToRoutes.find(SearchKey);
+        if(Search != DSrcDestToRoutes.end()){
+            routes = Search->second;
+            return true;
+        }
         return false;
     }
 
-    TStopID srcStopID = srcStop->ID();
-    TStopID destStopID = destStop->ID();
-
-    for (const auto& route : DImplementation->SortedRoutes) {
-        bool srcFound = false;
-        bool destFound = false;
-        for (std::size_t i = 0; i < route->StopCount(); ++i) {
-            TStopID currentStopID = route->GetStopID(i);
-            if (currentStopID == srcStopID) {
-                srcFound = true;
-            } else if (currentStopID == destStopID && srcFound) {
-                destFound = true;
-                break;
-            }
-    
-        }
-        if (srcFound && destFound) {
-            routes.insert(route);
-            found = true;
-        }
+    bool RouteBetweenNodeIDs(TNodeID src, TNodeID dest) const noexcept{
+        auto SearchKey = std::make_pair(src,dest);
+        auto Search = DSrcDestToRoutes.find(SearchKey);
+        return Search != DSrcDestToRoutes.end();
     }
 
-    return found;
+};
+
+CBusSystemIndexer::CBusSystemIndexer(std::shared_ptr<CBusSystem> bussystem){
+    DImplementation = std::make_unique<SImplementation>(bussystem);
 }
 
-    bool RouteBetweenNodeIDs(TNodeID src, TNodeID dest) const noexcept {
-        std::unordered_set<std::shared_ptr<CCSVBusSystem::SRoute>> routes;
-        return RoutesByNodeIDs(src, dest, routes);
-    }
-};
+CBusSystemIndexer::~CBusSystemIndexer(){
+
+}
+
+std::size_t CBusSystemIndexer::StopCount() const noexcept{
+    return DImplementation->StopCount();
+}
+
+std::size_t CBusSystemIndexer::RouteCount() const noexcept{
+    return DImplementation->RouteCount();
+}
+
+std::shared_ptr<CBusSystem::SStop> CBusSystemIndexer::SortedStopByIndex(std::size_t index) const noexcept{
+    return DImplementation->SortedStopByIndex(index);
+}
+
+std::shared_ptr<CBusSystem::SRoute> CBusSystemIndexer::SortedRouteByIndex(std::size_t index) const noexcept{
+    return DImplementation->SortedRouteByIndex(index);
+}
+
+std::shared_ptr<CBusSystem::SStop> CBusSystemIndexer::StopByNodeID(TNodeID id) const noexcept{
+    return DImplementation->StopByNodeID(id);
+}
+
+bool CBusSystemIndexer::RoutesByNodeIDs(TNodeID src, TNodeID dest, std::unordered_set<std::shared_ptr<SRoute> > &routes) const noexcept{
+    return DImplementation->RoutesByNodeIDs(src,dest,routes);
+}
+
+bool CBusSystemIndexer::RouteBetweenNodeIDs(TNodeID src, TNodeID dest) const noexcept{
+    return DImplementation->RouteBetweenNodeIDs(src,dest);
+}
