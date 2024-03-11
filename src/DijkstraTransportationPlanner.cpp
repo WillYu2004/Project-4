@@ -55,22 +55,24 @@ struct CDijkstraTransportationPlanner::SImplementation{
         return DStreetMap->NodeByIndex(index);
     }
 
-    double FindShortestPath(TNodeID src, TNodeID dest, std::vector< TNodeID > &path) {
+    double FindShortestPath(TNodeID src, TNodeID dest, std::vector<TNodeID>& path) {
     auto srcVertexIt = DNodeToVertexID.find(src);
     auto destVertexIt = DNodeToVertexID.find(dest);
     if (srcVertexIt == DNodeToVertexID.end() || destVertexIt == DNodeToVertexID.end()) {
         return CPathRouter::NoPathExists;
     }
-        std::vector< CPathRouter::TVertexID > ShortestPath;
-        auto SourcevertexID = DNodeToVertexID[src];
-        auto DestinationvertexID = DNodeToVertexID[dest];
-        auto Distance = DShortestPathRouter.FindShortestPath(SourcevertexID,DestinationvertexID,ShortestPath);
+    std::vector<CPathRouter::TVertexID> ShortestPath;
+    auto SourceVertexID = srcVertexIt->second;
+    auto DestinationVertexID = destVertexIt->second;
+    auto Distance = DShortestPathRouter.FindShortestPath(SourceVertexID, DestinationVertexID, ShortestPath);
+    if (Distance != CPathRouter::NoPathExists) {
         path.clear();
-        for(auto vertexID : ShortestPath){
+        for (auto vertexID : ShortestPath) {
             path.push_back(std::any_cast<TNodeID>(DShortestPathRouter.GetVertexTag(vertexID)));
         }
-        return Distance;
     }
+    return Distance;
+}
     double FindFastestPath(TNodeID src, TNodeID dest, std::vector< TTripStep > &path) {
     std::vector<CPathRouter::TVertexID> FastestPath;
     auto SourceVertexID = DNodeToVertexID[src];
@@ -121,6 +123,9 @@ struct CDijkstraTransportationPlanner::SImplementation{
 
     // Start location
     auto StartNode = DStreetMap->NodeByID(path.front().second);
+    if (!StartNode) {
+        return false;
+    }
     auto StartLocation = StartNode->Location();
     std::stringstream StartSS;
     StartSS << "Start at " << SGeographicUtils::ConvertLLToDMS(StartLocation);
@@ -132,6 +137,9 @@ struct CDijkstraTransportationPlanner::SImplementation{
     for (size_t i = 1; i < path.size(); ++i) {
         auto CurrentStep = path[i];
         auto CurrentNode = DStreetMap->NodeByID(CurrentStep.second);
+        if (!CurrentNode) {
+            return false;
+        }
         auto CurrentLocation = CurrentNode->Location();
 
         if (CurrentStep.first != PrevMode) {
@@ -139,11 +147,17 @@ struct CDijkstraTransportationPlanner::SImplementation{
             if (CurrentStep.first == ETransportationMode::Bus) {
                 auto PrevStop = DBusSystem->StopByID(PrevNodeID);
                 auto CurrentStop = DBusSystem->StopByID(CurrentStep.second);
+                if (!PrevStop || !CurrentStop) {
+                    return false;
+                }
                 std::stringstream BusSS;
                 BusSS << "Take Bus from stop " << PrevStop->ID() << " to stop " << CurrentStop->ID();
                 desc.push_back(BusSS.str());
             } else {
                 auto PrevNode = DStreetMap->NodeByID(PrevNodeID);
+                if (!PrevNode) {
+                    return false;
+                }
                 double Distance = SGeographicUtils::HaversineDistanceInMiles(PrevNode->Location(), CurrentLocation);
                 double Bearing = SGeographicUtils::CalculateBearing(PrevNode->Location(), CurrentLocation);
                 std::string Direction = SGeographicUtils::BearingToDirection(Bearing);
@@ -154,10 +168,12 @@ struct CDijkstraTransportationPlanner::SImplementation{
             }
         } else {
             // Same mode
-            double Distance = SGeographicUtils::HaversineDistanceInMiles(DStreetMap->NodeByID(PrevNodeID)->Location(),
-                                                                         CurrentLocation);
-            double Bearing = SGeographicUtils::CalculateBearing(DStreetMap->NodeByID(PrevNodeID)->Location(),
-                                                                CurrentLocation);
+            auto PrevNode = DStreetMap->NodeByID(PrevNodeID);
+            if (!PrevNode) {
+                return false;
+            }
+            double Distance = SGeographicUtils::HaversineDistanceInMiles(PrevNode->Location(), CurrentLocation);
+            double Bearing = SGeographicUtils::CalculateBearing(PrevNode->Location(), CurrentLocation);
             std::string Direction = SGeographicUtils::BearingToDirection(Bearing);
             std::stringstream SameModeSS;
             SameModeSS << (CurrentStep.first == ETransportationMode::Walk ? "Walk" : "Bike") << " "
@@ -171,6 +187,9 @@ struct CDijkstraTransportationPlanner::SImplementation{
 
     // End location
     auto EndNode = DStreetMap->NodeByID(path.back().second);
+    if (!EndNode) {
+        return false;
+    }
     auto EndLocation = EndNode->Location();
     std::stringstream EndSS;
     EndSS << "End at " << SGeographicUtils::ConvertLLToDMS(EndLocation);
