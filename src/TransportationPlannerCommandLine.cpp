@@ -186,9 +186,9 @@ struct CTransportationPlannerCommandLine::SImplementation {
 
 // Constructor
 CTransportationPlannerCommandLine::CTransportationPlannerCommandLine(std::shared_ptr<CDataSource> cmdsrc, std::shared_ptr<CDataSink> outsink, std::shared_ptr<CDataSink> errsink, std::shared_ptr<CDataFactory> results, std::shared_ptr<CTransportationPlanner> planner)
-    : DImplementation(std::make_unique<SImplementation>(cmdsrc, outsink, errsink, results, planner)) {}
+    : DImplementation(std::make_unique<SImplementation>(cmdsrc, outsink, errsink, results, planner)){}
 // Destructor
-CTransportationPlannerCommandLine::~CTransportationPlannerCommandLine() {}
+CTransportationPlannerCommandLine::~CTransportationPlannerCommandLine()=default;
 
 bool CTransportationPlannerCommandLine::ProcessCommands() {
     return DImplementation->ProcessCommands();
