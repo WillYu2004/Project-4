@@ -52,6 +52,9 @@ struct CDijkstraPathRouter::SImplementation{
 
     // Implements Dijkstra's algorithm to find the shortest path from a source vertex to a destination vertex.
     double FindShortestPath(TVertexID src, TVertexID dest, std::vector<TVertexID> &path) noexcept{
+    if (src >= VertexCount() || dest >= VertexCount()) {
+        return NoPathExists; // Invalid vertex ID
+    }
         std::vector<TVertexID> PendingVertices;
         std::vector<TVertexID> Previous(DVertices.size(), CPathRouter::InvalidVertexID);
         std::vector< double > Distances(DVertices.size(), CPathRouter::NoPathExists);
