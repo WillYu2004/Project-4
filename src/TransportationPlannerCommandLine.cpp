@@ -6,6 +6,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <iomanip>
 
 struct CTransportationPlannerCommandLine::SImplementation {
     std::shared_ptr<CDataSource> DCmdSrc;
@@ -54,10 +55,14 @@ struct CTransportationPlannerCommandLine::SImplementation {
                 for (const auto& Line : HelpText) {
                     DOutSink->Write(std::vector<char>(Line.begin(), Line.end()));
                 }
+                DOutSink->Write({'>'});
+                DOutSink->Write({' '});
             } else if (Command == "count") {
                 std::size_t NodeCount = DPlanner->NodeCount();
                 std::string Output = std::to_string(NodeCount) + " nodes\n";
                 DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
+                DOutSink->Write({'>'});
+                DOutSink->Write({' '});
             } else if (Command == "node") {
                 std::size_t Index;
                 if (LineStream >> Index) {
@@ -67,6 +72,8 @@ struct CTransportationPlannerCommandLine::SImplementation {
                         std::string Output = "Node " + std::to_string(Index) + ": id = " + std::to_string(Node->ID()) +
                                              " is at " + SGeographicUtils::ConvertLLToDMS(Location) + "\n";
                         DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
+                        DOutSink->Write({'>'});
+                        DOutSink->Write({' '});
                     } else {
                         std::string Error = "Invalid node index, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
@@ -82,21 +89,11 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     double TravelTime = DPlanner->FindFastestPath(Src, Dest, Path);
                     if (TravelTime != CPathRouter::NoPathExists) {
                         DLastPath = Path;
-                        int Hours = static_cast<int>(TravelTime);
-                        int Minutes = static_cast<int>((TravelTime - Hours) * 60);
-                        int Seconds = static_cast<int>((TravelTime - Hours - Minutes / 60.0) * 3600);
-                        std::string TimeString;
-                        if (Hours > 0) {
-                            TimeString += std::to_string(Hours) + " hr ";
-                        }
-                        if (Minutes > 0) {
-                            TimeString += std::to_string(Minutes) + " min ";
-                        }
-                        if (Seconds > 0) {
-                            TimeString += std::to_string(Seconds) + " sec";
-                        }
-                        std::string Output = "Fastest path takes " + TimeString + "\n";
+                        int Minutes = static_cast<int>(TravelTime * 60);
+                        std::string Output = "Fastest path takes " + std::to_string(Minutes) + " min.\n";
                         DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
+                        DOutSink->Write({'>'});
+                        DOutSink->Write({' '});
                     } else {
                         std::string Error = "No path found, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
@@ -111,8 +108,11 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::vector<CTransportationPlanner::TNodeID> Path;
                     double Distance = DPlanner->FindShortestPath(Src, Dest, Path);
                     if (Distance != CPathRouter::NoPathExists) {
-                        std::string Output = "Shortest path is " + std::to_string(Distance) + " mi.\n";
-                        DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
+                        std::ostringstream Output;
+                        Output << std::fixed << std::setprecision(1) << "Shortest path is " << Distance << " mi.\n";
+                        DOutSink->Write(std::vector<char>(Output.str().begin(), Output.str().end()));
+                        DOutSink->Write({'>'});
+                        DOutSink->Write({' '});
                     } else {
                         std::string Error = "No path found, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
@@ -150,6 +150,8 @@ struct CTransportationPlannerCommandLine::SImplementation {
                         }
                         std::string Output = "Path saved to <results>/" + FileName + "\n";
                         DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
+                        DOutSink->Write({'>'});
+                        DOutSink->Write({' '});
                     } else {
                         std::string Error = "Failed to save path, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
@@ -163,9 +165,11 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::vector<std::string> Description;
                     if (DPlanner->GetPathDescription(DLastPath, Description)) {
                         for (const auto& Desc : Description) {
-                            std::string Output = Desc + "\n";
+                            std::string Output = Desc + '\n';
                             DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
                         }
+                        DOutSink->Write({'>'});
+                        DOutSink->Write({' '});
                     } else {
                         std::string Error = "Failed to print path, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
