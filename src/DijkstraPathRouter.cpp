@@ -2,25 +2,31 @@
 #include <algorithm>
 
 struct CDijkstraPathRouter::SImplementation{
+    // Defines an edge in the graph as a pair of a double (the weight of the edge) and a TVertexID (the destination vertex).
     using TEdge = std::pair<double, TVertexID>;
     
+    // Represents a vertex in the graph, holding any type of tag and a list of outgoing edges.
     struct SVertex{
-        std::any DTag;
-        std::vector< TEdge > DEdges;
+        std::any DTag; // Can hold any type of data associated with the vertex
+        std::vector< TEdge > DEdges; // List of edges originating from this vertex.
     };
 
+    // A vector holding all the vertices in the graph
     std::vector< SVertex > DVertices;
 
+    // Returns the total number of vertices in the graph.
     std::size_t VertexCount() const noexcept{
         return DVertices.size();
     }
 
+    // Adds a new vertex to the graph with an associated tag and returns its ID
     TVertexID AddVertex(std::any tag) noexcept{
         TVertexID NewVertexID = DVertices.size();
         DVertices.push_back({tag,});
         return NewVertexID;
     }
 
+    // Retrieves the tag associated with a given vertex ID.
     std::any GetVertexTag(TVertexID id) const noexcept{
         if(id < DVertices.size()){
             return DVertices[id].DTag;
@@ -39,10 +45,12 @@ struct CDijkstraPathRouter::SImplementation{
         return false;
     }
 
+    // Placeholder for a future optimization method that precomputes data to speed up path finding.
     bool Precompute(std::chrono::steady_clock::time_point deadline) noexcept{
         return true;
     }
 
+    // Implements Dijkstra's algorithm to find the shortest path from a source vertex to a destination vertex.
     double FindShortestPath(TVertexID src, TVertexID dest, std::vector<TVertexID> &path) noexcept{
         std::vector<TVertexID> PendingVertices;
         std::vector<TVertexID> Previous(DVertices.size(), CPathRouter::InvalidVertexID);
@@ -86,6 +94,7 @@ struct CDijkstraPathRouter::SImplementation{
 
 };
 
+// Constructors, destructors, and member function definitions that delegate to the SImplementation.
 CDijkstraPathRouter::CDijkstraPathRouter(){
     DImplementation = std::make_unique<SImplementation>();
 }
