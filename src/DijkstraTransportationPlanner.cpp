@@ -75,25 +75,7 @@ struct CDijkstraTransportationPlanner::SImplementation{
         path.clear();
         for (auto VertexID : FastestPath) {
             auto NodeID = std::any_cast<TNodeID>(DFastestPathRouterBike.GetVertexTag(VertexID));
-            path.emplace_back(NodeID, ETransportationMode::Bike);
-        }
-        return BikeDuration;
-    }
-
-    // Find the fastest path using walk and bus
-    std::vector<CPathRouter::TVertexID> WalkBusPath;
-    auto WalkBusDuration = DFastestPathRouterWalkBus.FindShortestPath(SourceVertexID, DestinationVertexID, WalkBusPath);
-    std::vector<CPathRouter::TVertexID> FastestPath;
-    auto SourceVertexID = DNodeToVertexID[src];
-    auto DestinationVertexID = DNodeToVertexID[dest];
-
-    // Find the fastest path using bike
-    auto BikeDuration = DFastestPathRouterBike.FindShortestPath(SourceVertexID, DestinationVertexID, FastestPath);
-    if (BikeDuration != CPathRouter::NoPathExists) {
-        path.clear();
-        for (auto VertexID : FastestPath) {
-            auto NodeID = std::any_cast<TNodeID>(DFastestPathRouterBike.GetVertexTag(VertexID));
-            path.emplace_back(NodeID, ETransportationMode::Bike);
+            path.emplace_back(CTransportationPlanner::ETransportationMode::Bike, NodeID);
         }
         return BikeDuration;
     }
@@ -113,24 +95,22 @@ struct CDijkstraTransportationPlanner::SImplementation{
                 Mode = ETransportationMode::Bus;
             }
             
-            // Add the node and mode to the path only if the mode has changed
-            if (Mode != PrevMode) {
-                path.emplace_back(NodeID, Mode);
-                PrevMode = Mode;
-            }
+            // Add the node and mode to the path
+            path.emplace_back(Mode, NodeID);
+            PrevMode = Mode;
         }
         return WalkBusDuration;
     }
 
     return CPathRouter::NoPathExists;
-    }
+}
 
     bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
-        desc.clear();
+    desc.clear();
 
-        if (path.empty()) {
-            return false;
-        }
+    if (path.empty()) {
+        return false;
+    }
 
     // Start location
     auto StartNode = DStreetMap->NodeByID(path.front().second);
@@ -190,6 +170,32 @@ struct CDijkstraTransportationPlanner::SImplementation{
     desc.push_back(EndSS.str());
 
     return true;
-    }
+}
 
 };
+// Constructor
+CDijkstraTransportationPlanner::CDijkstraTransportationPlanner(std::shared_ptr<SConfiguration> config)
+    : DImplementation(std::make_unique<SImplementation>(config)) {}
+
+// Destructor
+CDijkstraTransportationPlanner::~CDijkstraTransportationPlanner() = default;
+
+std::size_t CDijkstraTransportationPlanner::NodeCount() const noexcept {
+    return DImplementation->NodeCount();
+}
+
+std::shared_ptr<CStreetMap::SNode> CDijkstraTransportationPlanner::SortedNodeByIndex(std::size_t index) const noexcept {
+    return DImplementation->SortedNodeByIndex(index);
+}
+
+double CDijkstraTransportationPlanner::FindShortestPath(TNodeID src, TNodeID dest, std::vector<TNodeID>& path) {
+    return DImplementation->FindShortestPath(src, dest, path);
+}
+
+double CDijkstraTransportationPlanner::FindFastestPath(TNodeID src, TNodeID dest, std::vector<TTripStep>& path) {
+    return DImplementation->FindFastestPath(src, dest, path);
+}
+
+bool CDijkstraTransportationPlanner::GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
+    return DImplementation->GetPathDescription(path, desc);
+}
