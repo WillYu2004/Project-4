@@ -8,7 +8,7 @@ BIN_DIR=./bin
 TEST_SRC_DIRC=./testsrc
 TEST_TMP_DIR=./testtmp
 
-CXXFLAGS=-std=c++17 -I$(INC_DIR)
+CXXFLAGS=-std=c++17 -I$(INC_DIR) -g -O0
 LDFLAGS=-lgtest -lgtest_main -lgmock -lpthread -lexpat
 
 all: directories runtests

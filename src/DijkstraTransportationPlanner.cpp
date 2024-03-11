@@ -14,6 +14,7 @@ struct CDijkstraTransportationPlanner::SImplementation{
     CDijkstraPathRouter DFastestPathRouterWalkBus;
 
     SImplementation(std::shared_ptr<SConfiguration> config){
+        if (config) {
         DStreetMap = config->StreetMap();
         DBusSystem = config->BusSystem();
         double WalkSpeed = config->WalkSpeed();
@@ -21,6 +22,7 @@ struct CDijkstraTransportationPlanner::SImplementation{
         double DefaultSpeedLimit = config->DefaultSpeedLimit();
         double BusStopTime = config->BusStopTime();
         int PrecomputeTime = config->PrecomputeTime();
+    }
         
 
         for(size_t Index = 0; Index < DStreetMap->NodeCount(); Index++){
@@ -54,6 +56,11 @@ struct CDijkstraTransportationPlanner::SImplementation{
     }
 
     double FindShortestPath(TNodeID src, TNodeID dest, std::vector< TNodeID > &path) {
+    auto srcVertexIt = DNodeToVertexID.find(src);
+    auto destVertexIt = DNodeToVertexID.find(dest);
+    if (srcVertexIt == DNodeToVertexID.end() || destVertexIt == DNodeToVertexID.end()) {
+        return CPathRouter::NoPathExists;
+    }
         std::vector< CPathRouter::TVertexID > ShortestPath;
         auto SourcevertexID = DNodeToVertexID[src];
         auto DestinationvertexID = DNodeToVertexID[dest];
