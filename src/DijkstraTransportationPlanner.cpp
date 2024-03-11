@@ -6,7 +6,6 @@
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-
 struct CDijkstraTransportationPlanner::SImplementation{
     std::shared_ptr< CStreetMap > DStreetMap;
     std::shared_ptr< CBusSystem > DBusSystem;
@@ -65,8 +64,8 @@ struct CDijkstraTransportationPlanner::SImplementation{
                 auto NextVertexID = DNodeToVertexID[NextNodeID];
 
                 double TimeBike = Bikable ? (Distance / BikeSpeed * 3600) : CPathRouter::NoPathExists; // Time in seconds
-                double TimeWalk = Distance / WalkSpeed * 3600; // Time in seconds assuming walk speed is in m/s
-                double TimeBus = Distance / BusSpeed * 3600; // Time in seconds assuming bus speed is in m/s
+                double TimeWalk = Distance * 1609.34 / WalkSpeed; // Time in seconds assuming WalkSpeed is in m/s
+                double TimeBus = Distance / BusSpeed * 3600; // Time in seconds assuming BusSpeed is in mph
 
                 // Add edges for shortest path calculation
                 DShortestPathRouter.AddEdge(PreviousVertexID, NextVertexID, Distance, Bidirectional);
@@ -77,7 +76,46 @@ struct CDijkstraTransportationPlanner::SImplementation{
                 }
 
                 // Add edges for fastest walk/bus path calculation
-                DFastestPathRouterWalkBus.AddEdge(PreviousVertexID, NextVertexID, TimeBus, Bidirectional);
+                double TimeWalkBus = TimeWalk; // Initial walking time
+if (DBusSystem->StopByID(PreviousNodeID) != nullptr && DBusSystem->StopByID(NextNodeID) != nullptr) {
+    // Check if there is a direct bus route between the two stops
+    for (size_t RouteIndex = 0; RouteIndex < DBusSystem->RouteCount(); ++RouteIndex) {
+        auto Route = DBusSystem->RouteByIndex(RouteIndex);
+        bool PrevStopFound = false;
+        bool NextStopFound = false;
+        for (size_t StopIndex = 0; StopIndex < Route->StopCount(); ++StopIndex) {
+            auto StopID = Route->GetStopID(StopIndex);
+            if (StopID == PreviousNodeID) {
+                PrevStopFound = true;
+            } else if (StopID == NextNodeID) {
+                NextStopFound = true;
+            }
+            if (PrevStopFound && NextStopFound) {
+                // Calculate the bus travel time between the two stops
+                double BusDistance = 0.0;
+                for (size_t i = 0; i < Route->StopCount() - 1; ++i) {
+                    auto Stop1 = DBusSystem->StopByID(Route->GetStopID(i));
+                    auto Stop2 = DBusSystem->StopByID(Route->GetStopID(i + 1));
+
+                    // Assuming we can get corresponding street map nodes for these bus stops
+                    auto Node1 = DStreetMap->NodeByID(Stop1->NodeID()); // Assuming Stop objects have a NodeID() method
+                    auto Node2 = DStreetMap->NodeByID(Stop2->NodeID());
+
+                    if (Node1 && Node2) {
+                        double SegmentDistance = SGeographicUtils::HaversineDistanceInMiles(Node1->Location(), Node2->Location());
+                        BusDistance += SegmentDistance;
+                    }
+                }
+
+                double BusSpeed = config->DefaultSpeedLimit();
+                double TimeBus = (BusDistance / BusSpeed * 3600) + (Route->StopCount() - 1) * config->BusStopTime(); // Time in seconds
+                TimeWalkBus = std::min(TimeWalkBus, TimeBus + 2 * config->BusStopTime()); // Account for walking time to/from bus stops
+                break;
+            }
+        }
+    }
+}
+DFastestPathRouterWalkBus.AddEdge(PreviousVertexID, NextVertexID, TimeWalkBus, Bidirectional);
             }
         }
     }
@@ -94,128 +132,93 @@ struct CDijkstraTransportationPlanner::SImplementation{
     }
 
     double FindShortestPath(TNodeID src, TNodeID dest, std::vector<TNodeID>& path) {
-    auto srcVertexIt = DNodeToVertexID.find(src);
-    auto destVertexIt = DNodeToVertexID.find(dest);
-    if (srcVertexIt == DNodeToVertexID.end() || destVertexIt == DNodeToVertexID.end()) {
-        return CPathRouter::NoPathExists;
-    }
-    std::vector<CPathRouter::TVertexID> ShortestPath;
-    auto SourceVertexID = srcVertexIt->second;
-    auto DestinationVertexID = destVertexIt->second;
-    auto Distance = DShortestPathRouter.FindShortestPath(SourceVertexID, DestinationVertexID, ShortestPath);
-    if (Distance != CPathRouter::NoPathExists) {
-        path.clear();
-        for (auto vertexID : ShortestPath) {
-            path.push_back(std::any_cast<TNodeID>(DShortestPathRouter.GetVertexTag(vertexID)));
+        auto srcVertexIt = DNodeToVertexID.find(src);
+        auto destVertexIt = DNodeToVertexID.find(dest);
+        if (srcVertexIt == DNodeToVertexID.end() || destVertexIt == DNodeToVertexID.end()) {
+            return CPathRouter::NoPathExists;
         }
+        std::vector<CPathRouter::TVertexID> ShortestPath;
+        auto SourceVertexID = srcVertexIt->second;
+        auto DestinationVertexID = destVertexIt->second;
+        auto Distance = DShortestPathRouter.FindShortestPath(SourceVertexID, DestinationVertexID, ShortestPath);
+        if (Distance != CPathRouter::NoPathExists) {
+            path.clear();
+            for (auto vertexID : ShortestPath) {
+                path.push_back(std::any_cast<TNodeID>(DShortestPathRouter.GetVertexTag(vertexID)));
+            }
+        }
+        return Distance;
     }
-    return Distance;
-}
 
     double FindFastestPath(TNodeID src, TNodeID dest, std::vector<TTripStep>& path) {
-    std::vector<CPathRouter::TVertexID> FastestPath;
-    auto SourceVertexID = DNodeToVertexID[src];
-    auto DestinationVertexID = DNodeToVertexID[dest];
+        std::vector<CPathRouter::TVertexID> FastestPath;
+        auto SourceVertexID = DNodeToVertexID[src];
+        auto DestinationVertexID = DNodeToVertexID[dest];
 
-    // Find the fastest path using bike
-    auto BikeDuration = DFastestPathRouterBike.FindShortestPath(SourceVertexID, DestinationVertexID, FastestPath);
-    if (BikeDuration != CPathRouter::NoPathExists) {
-        path.clear();
-        for (auto VertexID : FastestPath) {
-            auto NodeID = std::any_cast<TNodeID>(DFastestPathRouterBike.GetVertexTag(VertexID));
-            path.emplace_back(CTransportationPlanner::ETransportationMode::Bike, NodeID);
+        // Find the fastest path using bike
+        auto BikeDuration = DFastestPathRouterBike.FindShortestPath(SourceVertexID, DestinationVertexID, FastestPath);
+        if (BikeDuration != CPathRouter::NoPathExists) {
+            path.clear();
+            for (auto VertexID : FastestPath) {
+                auto NodeID = std::any_cast<TNodeID>(DFastestPathRouterBike.GetVertexTag(VertexID));
+                path.emplace_back(CTransportationPlanner::ETransportationMode::Bike, NodeID);
+            }
+            return BikeDuration / 3600.0;
         }
-        return BikeDuration / 3600;
-    }
 
-    // Find the fastest path using walk and bus
-    double minDuration = std::numeric_limits<double>::max();
-    std::vector<CPathRouter::TVertexID> walkBusPath;
+        // Find the fastest path using walk and bus
+        std::vector<CPathRouter::TVertexID> WalkBusPath;
+        auto WalkBusDuration = DFastestPathRouterWalkBus.FindShortestPath(SourceVertexID, DestinationVertexID, WalkBusPath);
+        if (WalkBusDuration != CPathRouter::NoPathExists) {
+            path.clear();
+            ETransportationMode PrevMode = ETransportationMode::Walk;
+            for (size_t i = 0; i < WalkBusPath.size(); ++i) {
+                auto VertexID = WalkBusPath[i];
+                auto NodeID = std::any_cast<TNodeID>(DFastestPathRouterWalkBus.GetVertexTag(VertexID));
+                auto Mode = ETransportationMode::Walk;
 
-    for (size_t i = 0; i < DBusSystem->StopCount(); ++i) {
-        auto busStop = DBusSystem->StopByIndex(i);
-        if (!busStop) continue;
-
-        auto busStopVertexID = DNodeToVertexID[busStop->ID()];
-        std::vector<CPathRouter::TVertexID> walkPath;
-        double walkToBusTime = DShortestPathRouter.FindShortestPath(SourceVertexID, busStopVertexID, walkPath);
-        if (walkToBusTime == CPathRouter::NoPathExists) continue;
-
-        for (size_t j = 0; j < DBusSystem->RouteCount(); ++j) {
-            auto route = DBusSystem->RouteByIndex(j);
-            if (!route) continue;
-
-            bool containsSrcStop = false;
-            bool containsDestStop = false;
-            std::vector<TNodeID> busRoute;
-
-            // Check if the bus route contains the source and destination stops
-            for (size_t k = 0; k < route->StopCount(); ++k) {
-                auto stopID = route->GetStopID(k);
-                if (stopID == busStop->ID()) {
-                    containsSrcStop = true;
-                } else if (stopID == dest) {
-                    containsDestStop = true;
-                }
-
-                // Reconstruct the bus route path if both source and destination stops are found
-                if (containsSrcStop && containsDestStop) {
-                    size_t srcIndex = std::numeric_limits<size_t>::max();
-                    size_t destIndex = std::numeric_limits<size_t>::max();
-                    for (size_t l = 0; l < route->StopCount(); ++l) {
-                        if (route->GetStopID(l) == busStop->ID()) {
-                            srcIndex = l;
-                        } else if (route->GetStopID(l) == dest) {
-                            destIndex = l;
+                // Check if the current node is a bus stop
+                if (DBusSystem->StopByID(NodeID) != nullptr) {
+                    // Check if the next node is also a bus stop and there is a direct bus route between them
+                    if (i < WalkBusPath.size() - 1) {
+                        auto NextVertexID = WalkBusPath[i + 1];
+                        auto NextNodeID = std::any_cast<TNodeID>(DFastestPathRouterWalkBus.GetVertexTag(NextVertexID));
+                        if (DBusSystem->StopByID(NextNodeID) != nullptr) {
+                            for (size_t RouteIndex = 0; RouteIndex < DBusSystem->RouteCount(); ++RouteIndex) {
+                                auto Route = DBusSystem->RouteByIndex(RouteIndex);
+                                bool PrevStopFound = false;
+                                bool NextStopFound = false;
+                                for (size_t StopIndex = 0; StopIndex < Route->StopCount(); ++StopIndex) {
+                                    auto StopID = Route->GetStopID(StopIndex);
+                                    if (StopID == NodeID) {
+                                        PrevStopFound = true;
+                                    } else if (StopID == NextNodeID) {
+                                        NextStopFound = true;
+                                    }
+                                    if (PrevStopFound && NextStopFound) {
+                                        Mode = ETransportationMode::Bus;
+                                        break;
+                                    }
+                                }
+                                if (Mode == ETransportationMode::Bus) {
+                                    break;
+                                }
+                            }
                         }
                     }
+                }
 
-                    if (srcIndex != std::numeric_limits<size_t>::max() && destIndex != std::numeric_limits<size_t>::max()) {
-                        for (size_t m = srcIndex; m <= destIndex; ++m) {
-                            busRoute.push_back(route->GetStopID(m));
-                        }
-                    }
-                    break;
+                // Add the node and mode to the path only if the mode has changed
+                if (Mode != PrevMode) {
+                    path.emplace_back(Mode, NodeID);
+                    PrevMode = Mode;
                 }
             }
-
-            if (!containsSrcStop || !containsDestStop) continue;
-
-            // Find the shortest path from the bus stop to the destination
-            double busTravelTime = DFastestPathRouterWalkBus.FindShortestPath(busStopVertexID, DNodeToVertexID[dest], FastestPath);
-
-            double totalDuration = walkToBusTime + busTravelTime;
-            if (totalDuration < minDuration) {
-                minDuration = totalDuration;
-                walkBusPath.clear();
-
-                // Build the walk-bus path
-                for (auto vertexID : walkPath) {
-                    auto nodeID = std::any_cast<TNodeID>(DShortestPathRouter.GetVertexTag(vertexID));
-                    walkBusPath.push_back(vertexID);
-                }
-                walkBusPath.push_back(busStopVertexID);
-
-                for (auto nodeID : busRoute) {
-                    auto vertexID = DNodeToVertexID[nodeID];
-                    walkBusPath.push_back(vertexID);
-                }
-            }
+            return WalkBusDuration / 3600.0; // Convert seconds to hours
         }
-    }
 
-    if (minDuration != std::numeric_limits<double>::max()) {
-        path.clear();
-        for (auto vertexID : walkBusPath) {
-            auto nodeID = std::any_cast<TNodeID>(DFastestPathRouterWalkBus.GetVertexTag(vertexID));
-            auto mode = (vertexID == walkBusPath.front() || vertexID == walkBusPath.back()) ? ETransportationMode::Walk : ETransportationMode::Bus;
-            path.emplace_back(mode, nodeID);
-        }
-        return minDuration / 3600;
+        return CPathRouter::NoPathExists;
     }
-
-    return CPathRouter::NoPathExists;
-}
 
     bool GetPathDescription(const std::vector<TTripStep>& path, std::vector<std::string>& desc) const {
         if (path.empty()) {
