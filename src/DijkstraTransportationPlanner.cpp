@@ -22,8 +22,10 @@ struct CDijkstraTransportationPlanner::SImplementation{
         double DefaultSpeedLimit = config->DefaultSpeedLimit();
         double BusStopTime = config->BusStopTime();
         int PrecomputeTime = config->PrecomputeTime();
-    }
+        }
         
+        double WalkSpeed = config ? config->WalkSpeed() : 0;
+        double BikeSpeed = config ? config->BikeSpeed() : 0;
 
         for(size_t Index = 0; Index < DStreetMap->NodeCount(); Index++){
             auto Node = DStreetMap->NodeByIndex(Index);
@@ -38,8 +40,29 @@ struct CDijkstraTransportationPlanner::SImplementation{
             bool Bidirectional = Way->GetAttribute("oneway") != "yes";
             auto PreviousNodeID = Way->GetNodeID(0);
             for(size_t NodeIndex = 1; NodeIndex < Way->NodeCount(); NodeIndex++){
+                auto PreviousNodeID = Way->GetNodeID(NodeIndex - 1);
                 auto NextNodeID = Way->GetNodeID(NodeIndex);
 
+                auto PreviousNode = DStreetMap->NodeByID(PreviousNodeID);
+                auto NextNode = DStreetMap->NodeByID(NextNodeID);
+                double Distance = SGeographicUtils::HaversineDistanceInMiles(PreviousNode->Location(), NextNode->Location());
+
+                auto PreviousVertexID = DNodeToVertexID[PreviousNodeID];
+                auto NextVertexID = DNodeToVertexID[NextNodeID];
+
+                double TimeBike = Bikable ? (Distance / BikeSpeed * 3600) : CPathRouter::NoPathExists; // Time in seconds
+                double TimeWalkBus = Distance / WalkSpeed * 3600; // Time in seconds assuming walk speed is in m/s
+
+                // Add edges for shortest path calculation
+                DShortestPathRouter.AddEdge(PreviousVertexID, NextVertexID, Distance, Bidirectional);
+
+                // Add edges for fastest bike path calculation, if bikable
+                if (Bikable && TimeBike != CPathRouter::NoPathExists) {
+                    DFastestPathRouterBike.AddEdge(PreviousVertexID, NextVertexID, TimeBike, Bidirectional);
+                }
+
+                // Add edges for fastest walk/bus path calculation
+                DFastestPathRouterWalkBus.AddEdge(PreviousVertexID, NextVertexID, TimeWalkBus, Bidirectional);
             }
         }
     }
