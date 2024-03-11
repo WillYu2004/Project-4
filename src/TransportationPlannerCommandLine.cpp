@@ -9,12 +9,12 @@
 #include <iomanip>
 
 struct CTransportationPlannerCommandLine::SImplementation {
-    std::shared_ptr<CDataSource> DCmdSrc;
+    std::shared_ptr<CDataSource> DCmdSrc; //A shared pointer to a data source, representing where commands are read from
     std::shared_ptr<CDataSink> DOutSink;
-    std::shared_ptr<CDataSink> DErrSink;
+    std::shared_ptr<CDataSink> DErrSink; 
     std::shared_ptr<CDataFactory> DResults;
     std::shared_ptr<CTransportationPlanner> DPlanner;
-    std::vector<CTransportationPlanner::TTripStep> DLastPath;
+    std::vector<CTransportationPlanner::TTripStep> DLastPath; // Stores the last calculated path
 
     SImplementation(std::shared_ptr<CDataSource> cmdsrc,
                     std::shared_ptr<CDataSink> outsink,
@@ -23,21 +23,23 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::shared_ptr<CTransportationPlanner> planner)
         : DCmdSrc(cmdsrc), DOutSink(outsink), DErrSink(errsink), DResults(results), DPlanner(planner) {}
 
+    // Processes user commands from the command source and handles them accordingly
     bool ProcessCommands(){
         std::vector<char> LineBuffer;
-        while (DCmdSrc->Read(LineBuffer, 1024)) {
+        while (DCmdSrc->Read(LineBuffer, 1024)) { // Read commands line by line
             LineBuffer.push_back('\n');  // Add newline character
             std::string Line(LineBuffer.begin(), LineBuffer.end());
             std::istringstream LineStream(Line);
             std::string Command;
-            LineStream >> Command;
+            LineStream >> Command; // Extract the command from the lin
 
             DOutSink->Write({'>'});
             DOutSink->Write({' '});
 
+            // Handle each command
             if (Command == "exit") {
-                break;
-            } else if (Command == "help") {
+                break; // Exit the command processing loop
+            } else if (Command == "help") { // Display help text
                 std::vector<std::string> HelpText = {
                     "------------------------------------------------------------------------\n",
                     "help     Display this help menu\n",
@@ -57,13 +59,13 @@ struct CTransportationPlannerCommandLine::SImplementation {
                 }
                 DOutSink->Write({'>'});
                 DOutSink->Write({' '});
-            } else if (Command == "count") {
+            } else if (Command == "count") { // Output the number of nodes in the map
                 std::size_t NodeCount = DPlanner->NodeCount();
                 std::string Output = std::to_string(NodeCount) + " nodes\n";
                 DOutSink->Write(std::vector<char>(Output.begin(), Output.end()));
                 DOutSink->Write({'>'});
                 DOutSink->Write({' '});
-            } else if (Command == "node") {
+            } else if (Command == "node") { // Given an index, outputs the ID and latitude/longitude of the specified node
                 std::size_t Index;
                 if (LineStream >> Index) {
                     auto Node = DPlanner->SortedNodeByIndex(Index);
@@ -82,7 +84,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::string Error = "Invalid node parameter, see help.\n";
                     DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
                 }
-            } else if (Command == "fastest") {
+            } else if (Command == "fastest") { //// Calculates and outputs the time for the fastest path between two node
                 CTransportationPlanner::TNodeID Src, Dest;
                 if (LineStream >> Src >> Dest) {
                     std::vector<CTransportationPlanner::TTripStep> Path;
@@ -102,7 +104,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::string Error = "Invalid fastest parameter, see help.\n";
                     DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
                 }
-            } else if (Command == "shortest") {
+            } else if (Command == "shortest") { // Calculates and outputs the distance for the shortest path between two nodes
                 CTransportationPlanner::TNodeID Src, Dest;
                 if (LineStream >> Src >> Dest) {
                     std::vector<CTransportationPlanner::TNodeID> Path;
@@ -121,7 +123,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::string Error = "Invalid shortest parameter, see help.\n";
                     DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
                 }
-            } else if (Command == "save") {
+            } else if (Command == "save") { // Saves the last calculated path to a file in a specified results directory
                 if (!DLastPath.empty()) {
                     std::string FileName = std::to_string(DLastPath.front().second) + "_" +
                                            std::to_string(DLastPath.back().second) + "_" +
@@ -160,7 +162,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                     std::string Error = "No valid path to save, see help.\n";
                     DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
                 }
-            } else if (Command == "print") {
+            } else if (Command == "print") { // Prints the steps of the last calculated path to the output sink
                 if (!DLastPath.empty()) {
                     std::vector<std::string> Description;
                     if (DPlanner->GetPathDescription(DLastPath, Description)) {
@@ -170,7 +172,7 @@ struct CTransportationPlannerCommandLine::SImplementation {
                         }
                         DOutSink->Write({'>'});
                         DOutSink->Write({' '});
-                    } else {
+                    } else { // Handle unknown commands with an error message
                         std::string Error = "Failed to print path, see help.\n";
                         DErrSink->Write(std::vector<char>(Error.begin(), Error.end()));
                     }
@@ -195,6 +197,7 @@ CTransportationPlannerCommandLine::CTransportationPlannerCommandLine(std::shared
 // Destructor
 CTransportationPlannerCommandLine::~CTransportationPlannerCommandLine()=default;
 
+// Public method to start processing commands
 bool CTransportationPlannerCommandLine::ProcessCommands() {
     return DImplementation->ProcessCommands();
 }

@@ -5,10 +5,10 @@ Student 1: PaulWang (921248970)
 Student 2: William Yu (921166191)
 
 ## Project Status
-This the status of project4 is finished. All files are able to compile and have been tested.
+This the status of project4 is not finished. All the files and function were written, but cannot pass some tests.
 
 ## Known Issues:
-The project has no known issues based on testing.
+some tests failed.
 
 ## Code References:
 Discussion Notes
