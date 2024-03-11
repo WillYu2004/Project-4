@@ -23,6 +23,7 @@ runtests: 	run_teststutils \
 			run_testdpr \
 			run_testcsvbs \
 			run_testcsvbsi \
+			run_testtpcl \
 			run_testtp
 
 run_teststutils: $(BIN_DIR)/teststrutils
